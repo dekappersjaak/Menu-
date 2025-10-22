@@ -1,84 +1,118 @@
 # ZorgMenu+
 
-ZorgMenu+ is een slimme weekmenu- en boodschappenapp voor zorginstellingen. Het platform helpt teams om maaltijden, boodschappen en voorraadbeheer in één systeem te organiseren, rekening houdend met bewoners, diëten, allergieën en budgetten.
+ZorgMenu+ is een digitale weekmenu- en boodschappenassistent voor zorginstellingen. Het platform combineert maaltijdplanning,
+voorraadbeheer en leveranciersintegraties zodat teams meer tijd overhouden voor bewonerszorg en tegelijk grip houden op kosten
+en diëten.
+
+## Samenvatting
+- **Probleem:** versnipperde Excel-lijsten, losse boodschappenapps en ontbrekend voorraadoverzicht leiden tot verspilling en
+  stress bij zorgteams.
+- **Oplossing:** één applicatie waarin menus, bewonersprofielen, voorraden en leveranciersbestellingen samenkomen.
+- **Resultaat:** minder verspilling, minder regeldruk en betere borging van diëten en allergieën.
 
 ## Doelstellingen
-- Tijdswinst en overzicht bij het plannen van maaltijden en het doen van boodschappen.
-- Minder verspilling door automatisch voorraadbeheer en bestellijsten.
-- Heldere taakverdeling binnen zorgteams (koken, boodschappen, mee-eten).
+1. Binnen 5 minuten een volledig weekmenu plannen per afdeling of woongroep.
+2. Maximaal 2% voedselverspilling door realtime voorraad- en houdbaarheidsbewaking.
+3. 100% naleving van dieet- en allergieafspraken via automatische controles.
+4. Integratie met minimaal één groothandel (Sligro) binnen het MVP.
 
-## Kernfuncties
-- Weekmenu samenstellen per dag en maaltijd.
-- Automatisch boodschappenlijstje op basis van menu, aantal eters en aanwezige voorraad.
-- Voorraadbeheer met waarschuwingen voor bijna lege producten of naderen van THT-datum.
-- Duidelijke rolverdeling (wie kookt, wie doet boodschappen, wie eet mee).
-- Budgetcontrole en prijsinschatting per leverancier.
-- Exporteren of bestellen via CSV, PDF of koppeling met leveranciers.
-- Dashboard met overzicht van kook- en besteldagen.
-- Notificaties en herinneringen voor bestellingen of voorraadcontroles.
+## Belangrijkste gebruikersrollen
+| Rol | Behoefte | Belangrijkste schermen |
+| --- | --- | --- |
+| **Kok / Huiskamerteam** | Snel menu samenstellen, weten wat er besteld of aanwezig is. | Weekplanner, boodschappenlijst, voorraad.
+| **Planner / Diëtist** | Controleren op diëten en allergieën, budgetbewaking. | Bewonersprofielen, dieetwaarschuwingen, budgetdashboards.
+| **Inkoper / Facilitair** | Bestellingen consolideren, leveranciers aansturen. | Leveranciersbeheer, bestelstatus, integraties.
+| **Teamleider / Manager** | Inzicht in kosten, naleving en planning. | KPI-dashboard, auditlog, rapportages.
 
-## Belangrijke Datavelden
-| Domein | Datavelden |
+## Kernfunctionaliteiten
+1. **Weekmenuplanner**
+   - Drag-and-drop recepten, automatische portieherberekening.
+   - Alternatieven bij allergieën of dieetrestricties.
+2. **Slimme boodschappenlijsten**
+   - Consolidatie per leverancier met realtime prijsindicatie.
+   - Statussen (concept, besteld, geleverd) en taaktoewijzing.
+3. **Voorraadbeheer**
+   - Barcode- of QR-scans (ZXing), houdbaarheidstracking en minimumvoorraden.
+   - Automatische voorraadmutaties op basis van geplande maaltijden.
+4. **Bewoners- en dieetbeheer**
+   - Profielen met allergieën, voorkeuren, textuur, energie-inname.
+   - Waarschuwingen bij menuconflicten en vervangingssuggesties.
+5. **Budget- & rapportagemodule**
+   - Budgetten per week/afdeling, afwijkingen en prognoses.
+   - Export naar PDF/CSV of BI-connector.
+
+## Niet-functionele eisen
+- **Beschikbaarheid:** 99,5% uptime tijdens werkdagen.
+- **Beveiliging:** AVG-conform, SSO via zorgbrede IdP (SAML/OIDC), auditlog.
+- **Performance:** pagina’s laden < 2s bij 200 gelijktijdige gebruikers.
+- **Toegankelijkheid:** WCAG 2.1 AA, inclusief schermlezer-ondersteuning.
+
+## Architectuuroverzicht
+```
+┌────────────┐     ┌────────────────┐      ┌─────────────────┐
+│  Frontend  │◀───▶│  BFF / API     │◀────▶│  Services        │
+│  (React)   │     │  (Node/Nest)   │      │  (Supabase/Postg)│
+└────────────┘     └────────────────┘      └─────────────────┘
+        ▲                     ▲                      ▲
+        │                     │                      │
+   Browsers             Integratiehub           Leveranciers &
+   Tablets (PWA)        (Message queue)         Externe API's
+```
+- **Frontend:** React + TypeScript, PWA voor tablets in keukens.
+- **BFF/API-laag:** Node.js (NestJS) of Supabase Edge Functions voor auth, autorisatie en bedrijfslogica.
+- **Services:** PostgreSQL met row level security, storage voor receptfoto’s, queue (e.g. Supabase Realtime) voor notificaties.
+- **Integraties:** Webhooks/EDI via integratiehub (Cleo, EdiFabric) en CSV/REST fallback.
+
+## Gegevensmodel (hoog niveau)
+| Entiteit | Kernvelden | Relaties |
+| --- | --- | --- |
+| **Bewoner** | naam, dieetlabels, allergieën, energiebehoefte | n:m met Menu via MenuDeelnemer |
+| **Menu** | datum, maaltijdtype, status, afdeling | m:n met Recepten, koppeling naar boodschappenlijsten |
+| **Recept** | titel, instructies, porties, voedingswaarden | m:n met Ingrediënten |
+| **Ingrediënt** | naam, categorie, eenheid, houdbaarheid | n:1 met LeverancierProduct |
+| **VoorraadItem** | locatie, hoeveelheid, THT, minimum | 1:n met Ingrediënt |
+| **Boodschappenregel** | hoeveelheid, prijs, status | 1:n met Leverancier, 1:n met Menu |
+| **Leverancier** | naam, levertijden, EDI-config | n:1 met LeverancierProduct |
+
+## Integraties en API's
+| Kanaal | Ondersteuning | Opmerkingen |
+| --- | --- | --- |
+| **Sligro EDI** | Productie | ORDERS/ORDRSP/INVOIC via gateway, authenticatie met klantnummer & certificaat. |
+| **Albert Heijn / Jumbo portaal** | MVP | Upload CSV (UTF-8, komma-gescheiden) met kolommen `sku, omschrijving, qty, unit, prijs`. |
+| **Open Food Facts** | MVP | Barcode lookup voor productdetails. Rate limiting respecteren. |
+| **Edamam / Spoonacular** | Optioneel | Recept-inspiratie en kostencalculatie. API-sleutels in secrets manager. |
+
+## Operationele processen
+1. **Menuplanning** – Planner stelt weekmenu op, controles op dieetlabels draaien realtime.
+2. **Bestelrun** – Dagelijks om 14:00 genereert systeem ordervoorstellen; inkoper bevestigt en verstuurt.
+3. **Ontvangst & voorraad** – Levering wordt gescand, verschillen worden geboekt en triggeren notificaties.
+4. **Audit & rapportage** – Wekelijks overzicht van kosten per afdeling, compliance op allergenen.
+
+## Implementatieroadmap
+1. **Fase 1 – MVP (8 weken)**
+   - Basis weekplanner, bewonersprofielen, CSV-export voor bestellingen.
+   - Voorraadmutaties handmatig, notificaties via e-mail.
+2. **Fase 2 – Automatisering (6 weken)**
+   - Barcode-scans, minimale voorraadniveaus, realtime budgetbewaking.
+   - Integratie met Sligro EDI via partner.
+3. **Fase 3 – Optimalisatie (doorlopend)**
+   - Machine learning voor verbruiksvoorspelling.
+   - Multilocation support, API voor externe BI-tools.
+
+## Governance & compliance
+- Datalocatie binnen EU, encryptie in rust (AES-256) en tijdens transport (TLS 1.2+).
+- Role Based Access Control met least-privilege-rollen.
+- Jaarlijkse penetratietest en DPIA, bewaartermijnen conform zorgprotocol.
+
+## Begrippenlijst
+| Term | Definitie |
 | --- | --- |
-| **Eters** | naam, dieet, allergieën, aanwezig/niet-aanwezig |
-| **Recepten** | titel, ingrediënten, porties, instructies |
-| **Ingrediënten** | naam, hoeveelheid, eenheid, houdbaarheid, barcode |
-| **Menu's** | dag, maaltijd, gekoppelde recepten |
-| **Boodschappenlijst** | item, hoeveelheid, leverancier, prijs, status |
-| **Voorraad** | product, hoeveelheid, locatie, THT-datum |
-| **Leveranciers** | naam, contact, type (AH, Jumbo, Sligro) |
+| **THT** | Ten minste houdbaar tot, bewaartermijn voor voedselproducten. |
+| **EDI** | Electronic Data Interchange voor gestructureerde bestelberichten. |
+| **BFF** | Backend-for-frontend; API-laag afgestemd op front-end behoeften. |
+| **PWA** | Progressive Web App voor gebruik op tablets en offline scenario’s. |
 
-## Automatisch Voorraad- en Bestelproces
-1. **Datalaag**
-   - Productcatalogus per leverancier met vaste SKU-mapping.
-   - Voorraadregistratie via barcode-scan (ZXing) of OCR op etiket (Tesseract).
-   - Verbruik voorspellen op basis van geplande menu’s.
-2. **Logica**
-   - Replenishmentregel: \(\text{bestelhoeveelheid} = \max(0, \text{behoefte tot volgende levering} - (\text{voorraad} - \text{veiligheidsvoorraad}))\).
-   - Substitutie bij allergenen of uitverkoop.
-   - Budgetcontrole per week of afdeling.
-3. **Output**
-   - Complete bestellijst per leverancier met prijzen en leverdag.
-   - Kanalen: EDI-koppeling, CSV-export of e-mail.
-
-## Leveranciers-API's en Integratie
-- **Sligro** (aanbevolen)
-  - Ondersteunt EDI (ORDERS/EDIFACT) via partner of gateway.
-  - Retourinformatie via ORDRSP/INVOIC.
-  - Vereist klantnummer en contract.
-  - Productie-klaar en officieel ondersteund.
-- **Albert Heijn & Jumbo**
-  - Geen publieke bestel-API.
-  - Export via CSV- of PDF-upload in portaal.
-  - Ongeautoriseerde community-API’s zijn instabiel en niet geschikt voor productie.
-- **CSV-route (voor MVP)**
-  - Exporteer velden: `{item, sku, hoeveelheid, eenheid, leverancier, prijs, THT, status}`.
-  - Formaat: UTF-8, komma-gescheiden, één leverancier per bestand.
-
-## Stackvoorstel
-- **Frontend:** React of Flutter.
-- **Backend:** Supabase of Firebase + Cloud Functions.
-- **Database:** PostgreSQL met JSON-kolommen voor recepten en voorraad.
-- **Scanner/OCR:** ZXing, Tesseract.
-- **EDI-gateway (Sligro):** EdiFabric, Cleo of partnerkoppeling (Apicbase).
-
-## Externe API's voor Recepten en Producten
-| API | Gebruik |
-| --- | --- |
-| **Edamam** | Zoeken naar recepten met diëten, allergenen, voedingswaarden. Endpoint: `GET /api/recipes/v2?type=public&q={query}&health={label}&diet={label}` |
-| **Spoonacular** | Kostencalculatie per recept en ingrediënt. Endpoints: `/recipes/{id}/information`, `/recipes/priceBreakdownByID/{id}` |
-| **TheMealDB** | Gratis, eenvoudige JSON-API. Endpoints: `lookup.php?i={id}`, `search.php?s={name}` |
-| **Open Food Facts** | Product- en barcode-informatie. Endpoint: `/api/v2/product/{barcode}.json` |
-| **Tandoor Recipes (self-hosted)** | Eigen veilige receptenbank met API. |
-
-## Aanbevolen API-combinaties
-- Edamam voor diëten en allergieën.
-- Spoonacular voor prijsberekening.
-- Open Food Facts voor verpakte producten en barcodes.
-- Tandoor voor interne zorgrecepten.
-
-## Datastructuur-mapping
-- Koppel leveranciers-SKU's aan interne ingrediënten via een mappingtabel met prioriteit per leverancier.
-- Koppel menu's aan recepten en recepten aan ingrediënten met portie-grootte conversies.
-- Houd voorraadmutaties bij via barcode-scans en menuverbruik.
-- Bewaak budgetten per afdeling met weeklimieten en koppeling aan boodschappenlijsten.
+## Volgende stappen
+- Uitwerken UI-wireframes (planner, boodschappenlijst, voorraad).
+- Technische spike naar Supabase Edge Functions voor webhook-afhandeling.
+- Gesprek met Sligro-partner voor certificering en testomgeving.
